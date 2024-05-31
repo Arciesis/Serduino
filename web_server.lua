@@ -17,7 +17,7 @@ local web_server = {}
 
 ---Read the headers for the current client's request
 ---@param client table reprensting the client's object
----@return table headers represent the name:value pair of the headers
+---@return nil|table headers represent the name:value pair of the headers and nil if an error ocured
 local function read_headers(client)
    local headers = {}
    while true do
@@ -46,7 +46,7 @@ local function read_request(client)
    if not request_line then
       log:warn("Error while receiving REQUEST: " .. tostring(err_line))
       client:close()
-      return nil
+      return
    end
 
    -- Parse request line
@@ -54,7 +54,7 @@ local function read_request(client)
    if not method or not path or not version then
       log:warn("Invalid request line: " .. request_line)
       client:close()
-      return nil
+      return
    end
 
    log:info("Received request: " .. request_line)
