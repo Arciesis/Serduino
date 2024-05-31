@@ -15,29 +15,10 @@ local log = logging.rolling_file(
 ---@field server table representing the luasocket server object
 local web_server = {}
 
----Handle each request to the server
----@param client table represent the request from the client
-function web_server:handle_request(client)
-   client:settimeout(10)
-
-   local request_line, err_line = client:receive("*l")
-   if not request_line then
-      log:warn("Error while receiving REQUEST: " .. tostring(err_line))
-      client:close()
-      return
-   end
-
-   -- Parse request line
-   local method, path, version = request_line:match("^(%w+)%s+([^%s]+)%s+(HTTP/%d%.%d)$")
-   if not method or not path or not version then
-      log:warn("Invalid request line: " .. request_line)
-      client:close()
-      return
-   end
-
-   log:info("Received request: " .. request_line)
-
-   -- Read headers
+---Read the headers for the current client's request
+---@param client table reprensting the client's object
+---@return table headers represent the name:value pair of the headers
+local function read_headers(client)
    local headers = {}
    while true do
       local line, err = client:receive("*l")
@@ -54,6 +35,54 @@ function web_server:handle_request(client)
          headers[name:lower()] = value
       end
    end
+   return headers
+end
+
+---Read the first line of a request in order to get the method, path and version in use
+---@param client table representing a client object
+---@return nil|table request_params return a table containing the method, path and version or nil otherwise
+local function read_request(client)
+   local request_line, err_line = client:receive("*l")
+   if not request_line then
+      log:warn("Error while receiving REQUEST: " .. tostring(err_line))
+      client:close()
+      return nil
+   end
+
+   -- Parse request line
+   local method, path, version = request_line:match("^(%w+)%s+([^%s]+)%s+(HTTP/%d%.%d)$")
+   if not method or not path or not version then
+      log:warn("Invalid request line: " .. request_line)
+      client:close()
+      return nil
+   end
+
+   log:info("Received request: " .. request_line)
+
+   local request_params
+   request_params.method = method
+   request_params.path = path
+   request_params.version = version
+
+   return request_params
+end
+
+---Handle each request to the server
+---@param client table represent the request from the client
+function web_server:handle_request(client)
+   client:settimeout(10)
+
+   local request_params = read_request(client)
+   if not request_params then
+      return
+   end
+
+   local method = request_params.method
+   local path = request_params.path
+   local version = request_params.version
+
+   -- Read headers
+   local headers = read_headers(client)
 
    for name, value in pairs(headers) do
       log:debug(name .. ":" .. value)
@@ -92,6 +121,7 @@ end
 
 ---Constructor of the class
 ---@param port number on which the server should listen to
+---@param route_handlers table representing the handler for each route
 ---@return table self representing the object
 function web_server.new(port)
    local self = {}
@@ -99,6 +129,7 @@ function web_server.new(port)
 
    self.server = assert(socket.bind("*", port))
    self.server:settimeout(0) -- Non-blocking mode
+   self.route_handlers = {}
    log:debug("Web Server running on port: " .. port)
 
    return self
