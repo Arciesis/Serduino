@@ -26,6 +26,20 @@ function web_server:handle_request(client)
    end
 end
 
+---Implement the same as run in the main but due to
+---concurrency doesnt be implementing here
+local function fakerun()
+while true do
+   local client = web_server.server:accept()
+   if client then
+      web_server:handle_request(client)
+      client:settimeout(0)
+      client:close()
+   end
+end
+
+end
+
 ---Constructor of the class
 ---@param port number on which the server should listen to
 ---@return table self representing the object
