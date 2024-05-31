@@ -8,6 +8,13 @@ local log = logging.rolling_file(
    5                   -- Maximum number of backup files to keep
 )
 
+---@class Client
+---@field sclient table representing the client socket connection
+---@field method nil|string representing the method in which the http server has been called
+---@field path nil|string representing the path in which the http has been called
+---@field version nil|string representing the version of http
+---@field headers nil|table representing the headers of the call
+---@field route_handlers nil|string representing the route's handler
 local Client = {}
 
 ---Read the first line of a request in order to get the method, path and version in use
@@ -20,23 +27,23 @@ function Client:read_request()
       return false
    end
 
-   -- for value in request_line:gmatch("^(%w+)%s+([^%s]+)%s+(HTTP/%d%.%d)$")
+   ---@private
+   ---Split the first line of a request into three string representing each a valuable information
+   ---@param s1 string repreenting the method
+   ---@param s2 string representing the path
+   ---@param s3 string representing the http's version
    local split_fisrt_line = function(s1, s2, s3)
       self.method = s1
       self.path = s2
       self.version = s3
-      -- print(string.format("method is: %s; path is: %s; version is: %s",self.method, self.path, self.version))
    end
-   -- Parse request line
+
    request_line:gsub("^(%w+)%s+([^%w]+)%s+(HTTP/%d.%d)$", split_fisrt_line)
 
-   --  if not is_ok then
-      --  log:warn("Invalid request pattern")
-      --  self.sclient:close()
-      --  return false
-   --  end
-
-   if not self.method or not self.path or not self.version then
+   if (not self.method and type(self.method) == "string") or
+       (not self.path and type(self.path) == "string") or
+       (not self.version and type(self.version) == "string")
+   then
       log:warn("Invalid request line: " .. request_line)
       self.sclient:close()
       return false
@@ -53,7 +60,7 @@ function Client:read_request()
 end
 
 ---Read the headers for the current client's request
----@return boolean has_finished_correctly wether the function has finished correctly or not
+---@return boolean has_finished_correctly whether the function has finished correctly or not
 function Client:read_headers()
    while true do
       local line, err = self.sclient:receive("*l")
@@ -67,6 +74,9 @@ function Client:read_headers()
          break
       end
 
+      ---Split the headers into key value to fill up the headers field
+      ---@param n string the name (key) of the header
+      ---@param v string the value of the header
       local split_headers = function(n, v)
          if n and v then
             self.headers[n:lower()] = v
@@ -74,14 +84,10 @@ function Client:read_headers()
          else
             log:warn("headers not split correctly")
             self.sclient:close()
-            return false
          end
       end
 
-      local name, value = line:gsub("^(.-):%s*(.*)$", split_headers)
-      if name and value then
-         self.headers[name:lower()] = value
-      end
+      line:gsub("^(.-):%s*(.*)$", split_headers)
    end
    return true
 end
@@ -96,16 +102,11 @@ function Client:handle_request()
       return
    end
 
-
    -- Read headers
    local has_finished_correctly = self:read_headers()
    if not has_finished_correctly then
-      log:debug("Umh something went wrong")
+      log:debug("The server canl't correctly interpreted the headers used by the client")
       return
-   end
-
-   for name, value in pairs(self.headers) do
-      log:debug(name .. ":" .. value)
    end
 
    local response_body = "<html><body><h1>Hello, World!</h1></body></html>"
@@ -125,7 +126,9 @@ function Client:handle_request()
    self.sclient:close()
 end
 
-
+---Constructor of the class
+---@param sclient table client side tcp socket that accept an http connection
+---@return table Client the object representing a client
 function Client.new(sclient)
    local self = {}
    setmetatable(self, { __index = Client })
