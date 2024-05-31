@@ -19,21 +19,53 @@ local web_server = {}
 ---@param client table represent the request from the client
 function web_server:handle_request(client)
    client:settimeout(10)
-   local request, err = client:receive("*l")
-   if not request then
-      log:warn("Error while receiving REQUEST: " .. tostring(err))
+
+   local request_line, err_line = client:receive("*l")
+   if not request_line then
+      log:warn("Error while receiving REQUEST: " .. tostring(err_line))
       client:close()
       return
    end
 
-   log:info("Receiving REQUEST: " .. request)
+   -- Parse request line
+   local method, path, version = request_line:match("^(%w+)%s+([^%s]+)%s+(HTTP/%d%.%d)$")
+   if not method or not path or not version then
+      log:warn("Invalid request line: " .. request_line)
+      client:close()
+      return
+   end
+
+   log:info("Received request: " .. request_line)
+
+   -- Read headers
+   local headers = {}
+   while true do
+      local line, err = client:receive("*l")
+      if not line then
+         print("Error receiving header line: " .. tostring(err))
+         client:close()
+         return
+      end
+      if line == "" then
+         break
+      end
+      local name, value = line:match("^(.-):%s*(.*)$")
+      if name and value then
+         headers[name:lower()] = value
+      end
+   end
+
+   for name, value in pairs(headers) do
+      log:debug(name .. ":" .. value)
+   end
+
    local response_body = "<html><body><h1>Hello, World!</h1></body></html>"
 
    --@TODO: extend this feature
    local response = "HTTP/1.1 200 OK\r\n" ..
-   "Content-Type: text/html\r\n" ..
-   "Content-Length: " .. #response_body .. "\r\n" ..
-   "\r\n" .. response_body
+       "Content-Type: text/html\r\n" ..
+       "Content-Length: " .. #response_body .. "\r\n" ..
+       "\r\n" .. response_body
 
    -- Send response
    local bytes_sent, send_err = client:send(response)
@@ -41,7 +73,7 @@ function web_server:handle_request(client)
       print("Error sending response: " .. tostring(send_err))
    end
 
-   client:send(response)
+   client:close()
 end
 
 ---Implement the same as run in the main but due to
