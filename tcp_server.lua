@@ -12,6 +12,7 @@ end
 
 
 function tcp_server:accept()
+   local table = require("table")
    -- wait for a connection from any client
    local client = self.server:accept()
 
@@ -20,11 +21,11 @@ function tcp_server:accept()
       client:settimeout(0)
 
       table.insert(self.clients, client)
-      --  client:close()
    end
 end
 
 function tcp_server:receive()
+   local table = require("table")
    -- packet size as describe from the ESP32 code base
    local packet_size = 1 + 4
 
@@ -51,13 +52,13 @@ function tcp_server:receive()
 end
 
 ---Run the TCP server
-function tcp_server:run()
-   -- loop forever waiting for clients
-   while 1 do
-      self:accept()
-      self:receive()
-   end
-end
+--  function tcp_server:run()
+--  -- loop forever waiting for clients
+--  while 1 do
+--  self:accept()
+--  self:receive()
+--  end
+--  end
 
 function tcp_server.new(port)
    local self = {}
@@ -68,9 +69,14 @@ function tcp_server.new(port)
    self.clients = {}
 
    -- find out which port the OS chose for us
-   local ip, _ = self.server:getsockname()
+   local ip, s_port = self.server:getsockname()
+   if port ~= s_port then
+      --@FIXME: Uhm WTF why this msg is printed ?
+      print("An error occurred DUH, init port: " .. port .. "actual port: " .. s_port)
+   end
+
    -- print a message informing what's up
-   print("TCP Server running on address " .. ip .. " with port " .. port)
+   print("TCP Server running on address " .. ip .. " with port " .. s_port)
 
    return self
 end
