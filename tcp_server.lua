@@ -1,5 +1,8 @@
 local socket = require("socket")
 
+---@class TCPServer
+---@field server table representing the server object
+---@field clients table representing all the connection from any client
 local tcp_server = {}
 
 --- Function to convert bytes to an integer
@@ -10,7 +13,7 @@ local function bytes_to_int(bytes)
    return b1 * 2 ^ 24 + b2 * 2 ^ 16 + b3 * 2 ^ 8 + b4
 end
 
-
+---Methods that accept connection from any client and fill in the clients field with all the values
 function tcp_server:accept()
    local table = require("table")
    -- wait for a connection from any client
@@ -24,6 +27,7 @@ function tcp_server:accept()
    end
 end
 
+---Receive data from all connection and then deserialize the result
 function tcp_server:receive()
    local table = require("table")
    -- packet size as describe from the ESP32 code base
@@ -51,15 +55,9 @@ function tcp_server:receive()
    end
 end
 
----Run the TCP server
---  function tcp_server:run()
---  -- loop forever waiting for clients
---  while 1 do
---  self:accept()
---  self:receive()
---  end
---  end
-
+---Constructor of the class
+---@param port number the port to which the TCP server is listening on
+---@return table self the object newly created
 function tcp_server.new(port)
    local self = {}
    setmetatable(self, { __index = tcp_server })
