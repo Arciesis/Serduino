@@ -1,4 +1,13 @@
 local socket = require("socket")
+local logging = require("logging")
+logging.rolling_file = require("logging.rolling_file")
+
+-- Configure the rolling file appender
+local log = logging.rolling_file(
+    "serduino_tcp.log",  -- Base log file name
+    1024 * 1024,   -- Maximum file size in bytes (1 MB)
+    5              -- Maximum number of backup files to keep
+)
 
 ---@class TCPServer
 ---@field server table representing the server object
@@ -37,12 +46,12 @@ function tcp_server:receive()
    for i, client in ipairs(self.clients) do
       local request, err = client:receive(packet_size)
       if not err then
-         print("Received TCP request from ESP: " .. request)
+         log:info("Received TCP request from ESP: " .. request)
 
          -- deserialize the request
          local sensor = string.byte(request, 1)
          local value = bytes_to_int(string.sub(request, 2))
-         print("The sensor is of type: " .. sensor .. " and the value is: " .. value)
+         log:info("The sensor is of type: " .. sensor .. " and the value is: " .. value)
 
          ---@TODO: store the value in DB
 
@@ -50,7 +59,7 @@ function tcp_server:receive()
          client:close()
       elseif err == "closed" then
          table.remove(self.clients, i)
-         print("Client disconnected")
+         log:info("Client disconnected")
       end
    end
 end
@@ -70,11 +79,11 @@ function tcp_server.new(port)
    local ip, s_port = self.server:getsockname()
    if port ~= s_port then
       --@FIXME: Uhm WTF why this msg is printed ?
-      print("An error occurred DUH, init port: " .. port .. "actual port: " .. s_port)
+      log:debug("An error occurred DUH, init port: " .. port .. "actual port: " .. s_port)
    end
 
    -- print a message informing what's up
-   print("TCP Server running on address " .. ip .. " with port " .. s_port)
+   log:debug("TCP Server running on address " .. ip .. " with port " .. s_port)
 
    return self
 end
