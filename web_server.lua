@@ -13,9 +13,7 @@ local log = logging.rolling_file(
    5                   -- Maximum number of backup files to keep
 )
 
----@class WEBServer represent a web server
----@field server table representing the luasocket server object
----@field route_handlers table representing the handler for each route
+---@module 'WebServer'
 local web_server = {}
 
 
@@ -37,21 +35,19 @@ local function fakerun()
    end
 end
 
----Constructor of the class
+---initialisation of the server
 ---@param port number on which the server should listen to
 ---@return table self representing the object
-function web_server.new(port)
-   local self = {}
-   setmetatable(self, { __index = web_server })
+function web_server.init(port)
+   --  local self = {}
+   --  setmetatable(self, { __index = web_server })
 
-   self.server = assert(socket.bind("*", port))
-   self.server:settimeout(0) -- Non-blocking mode
-
-   self.client = nil
+   server = assert(socket.bind("*", port))
+   server:settimeout(0) -- Non-blocking mode
 
    log:debug("Web Server running on port: " .. port)
 
-   return self
+   return server
 end
 
 return web_server

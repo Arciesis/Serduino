@@ -20,11 +20,11 @@ local io = require("io")
 -- Actual requirement
 local webServer = require("web_server")
 local Client = require("web_client")
-local web_server = webServer.new(8081)
+local web_server = webServer.init(8081)
 local socket = require("socket")
 
 while true do
-   local sclient = web_server.server:accept()
+   local sclient = web_server:accept()
    if sclient then
       local client = Client.new(sclient)
       client:handle_request()
