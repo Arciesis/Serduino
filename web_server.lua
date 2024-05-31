@@ -6,9 +6,9 @@ logging.rolling_file = require("logging.rolling_file")
 
 -- Configure the rolling file appender
 local log = logging.rolling_file(
-    "serduino_web.log",  -- Base log file name
-    1024 * 1024,   -- Maximum file size in bytes (1 MB)
-    5              -- Maximum number of backup files to keep
+   "serduino_web.log", -- Base log file name
+   1024 * 1024,        -- Maximum file size in bytes (1 MB)
+   5                   -- Maximum number of backup files to keep
 )
 
 ---@class WEBServer represent a web server
@@ -18,26 +18,44 @@ local web_server = {}
 ---Handle each request to the server
 ---@param client table represent the request from the client
 function web_server:handle_request(client)
-   local request, err = client:receive()
-   if not err then
-      log:info("Received HTTP request: " .. request)
-      local response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n<h1>Hello, this is your data</h1>"
-      client:send(response)
+   client:settimeout(10)
+   local request, err = client:receive("*l")
+   if not request then
+      log:warn("Error while receiving REQUEST: " .. tostring(err))
+      client:close()
+      return
    end
+
+   log:info("Receiving REQUEST: " .. request)
+   local response_body = "<html><body><h1>Hello, World!</h1></body></html>"
+
+   --@TODO: extend this feature
+   local response = "HTTP/1.1 200 OK\r\n" ..
+   "Content-Type: text/html\r\n" ..
+   "Content-Length: " .. #response_body .. "\r\n" ..
+   "\r\n" .. response_body
+
+   -- Send response
+   local bytes_sent, send_err = client:send(response)
+   if not bytes_sent then
+      print("Error sending response: " .. tostring(send_err))
+   end
+
+   client:send(response)
 end
 
 ---Implement the same as run in the main but due to
----concurrency doesnt be implementing here
+---concurrency doesn't be implementing here
+---Should always be the as the main one
 local function fakerun()
-while true do
-   local client = web_server.server:accept()
-   if client then
-      web_server:handle_request(client)
-      client:settimeout(0)
-      client:close()
+   while true do
+      local client = web_server.server:accept()
+      if client then
+         web_server:handle_request(client)
+         client:settimeout(0)
+         client:close()
+      end
    end
-end
-
 end
 
 ---Constructor of the class
